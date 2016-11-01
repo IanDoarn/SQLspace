@@ -1,0 +1,1 @@
+﻿SELECT * from doarni.login where passwords = '$5$rounds=535000$4W3avzZlXdwL5yWD$nIjnCwVIv9IAP7QQjGMh/aqPY5Y4QfOtohTO/U/BqE1'

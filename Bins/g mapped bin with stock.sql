@@ -1,0 +1,55 @@
+﻿with s1 as (
+SELECT
+	p.edi_number, 
+	p.product_number
+FROM
+	sms.product p
+),
+
+s2 as (
+Select
+  b.zone || '-' || b.position || '-' || b.shelf as bin,
+  coalesce (s1.edi_number, s1.product_number) as kit_id
+FROM
+  sms.stock s
+    LEFT JOIN sms.product p ON s.product_id = p.id
+    LEFT JOIN sms.bin b ON b.id = s.container_id
+    LEFT JOIN s1 ON p.product_number = s1.product_number AND p.edi_number = s1.edi_number
+ WHERE
+   s.location_type = 1 
+   and s.location_id = 370
+   and s.stock_type in (3,4)
+   and s.container_type = 1
+
+group by
+bin,
+s1.edi_number,
+s1.product_number
+
+)
+SELECT 
+	s2.bin,
+	CASE
+		WHEN count(bit_length(kit_id))  > 0 THEN 'NO'
+		WHEN count(bit_length(kit_id)) = 0 THEN 'YES'
+	END AS Empty,
+	CASE
+		WHEN count(bit_length(kit_id)) != 0 THEN 'YES'
+		WHEN count(bit_length(kit_id)) <= 0 THEN 'NO'
+	END AS Mapped,
+	CASE
+		WHEN sum(length(kit_id)) <= 11 THEN 'NO'
+		WHEN sum(length(kit_id)) is null THEN 'NO'
+		WHEN sum(length(kit_id)) > 11 THEN 'YES'
+	END AS Mixed,
+	array_to_string(array_agg(s2.kit_id) , ', ') as Kit_id
+	
+	
+FROM 
+	s2
+WHERE
+	s2.kit_id is not null
+GROUP BY
+	s2.bin
+ORDER BY
+	s2.bin
