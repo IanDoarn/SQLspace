@@ -1,39 +1,35 @@
 ﻿SET LOCAL timezone to 'PST8PDT';
-with s1 as ( --Transfers Table, assigned and completed transfer for the past two
-SELECT       --weeks to todays date. this Subquery shows Bin to Kit Transfers.
+with s1 as ( --Transfers Table, assigned and unassigned transfer for the past two
+SELECT       --weeks to two weeks in the future. this Subquery shows Bin to Kit Transfers.
 	t.movement_id,
-	t.id as transfer,
+	t.id as transfer_number,
 	p.product_number,
 	p.edi_number,
 	p.description,
 	to_char(created_date::timestamp at time zone '""Etc/GMT+3"', 'DD/MM/YYYY HH12:MI:SS PM') as created_date,
-	--to_char(completed_date::timestamp at time zone '""Etc/GMT+3"', 'DD/MM/YYYY HH12:MI:SS PM') as completed_date,
 	CASE 
-		WHEN t.from_container_type = 1 THEN 'From Bin'
-		WHEN t.from_container_type = 2 THEN 'From Kit'
+		WHEN t.from_container_type = 1 THEN 'FROM BIN'
+		WHEN t.from_container_type = 2 THEN 'FROM KIT'
 	END AS from_container_type,
 	CASE
-		WHEN t.to_container_type = 1 THEN 'Into Bin'
-		WHEN t.to_container_type = 2 THEN 'Into Kit'
+		WHEN t.to_container_type = 1 THEN 'INTO BIN'
+		WHEN t.to_container_type = 2 THEN 'INTO KIT'
 	END AS to_container_type,
 	CASE 
 		WHEN t.status = 0 THEN 'UNASSIGNED'
 		WHEN t.status = 1 THEN 'ASSIGNED'
 	END AS Status,
 	t.assigned_user_id,
-	u.username,
 	t.to_kit_serial_id,
 	to_kit_product_id
 FROM
 	sms.transfer t
 		LEFT JOIN sms.product p ON p.id = t.product_id 
-		LEFT JOIN sms.user_table u ON t.assigned_user_id = u.id
 WHERE
 	t.location_type = 1
-	and u.username != '%TCI'
 	and t.location_id = 370
 	and t.status in (0,1)
-	and t.assigned_date between localtimestamp - interval '14 day' and timestamp 'today' + interval '14 days'
+	and t.created_date between localtimestamp - interval '14 day' and timestamp 'today' + interval '14 days'
 	and t.transfer_type = 1
 ),
 s2 as ( -- Bin Locations for R and I bins using doarni.bins_v2 to map
@@ -82,11 +78,25 @@ GROUP BY
 	p.id
 ORDER BY 
 	p.product_number
+),
+s4 as (
+SELECT
+	t.assigned_user_id,
+	u.username
+FROM
+	sms.transfer t
+		JOIN sms.user_table u ON t.assigned_user_id = u.id
+WHERE
+	t.created_date between localtimestamp - interval '14 day' and timestamp 'today' + interval '14 days'
+	and u.username not similar to '%TCI'
+GROUP BY
+	t.assigned_user_id,
+	u.username
 )
 SELECT
-	s1.transfer,
+	s1.transfer_number,
 	s1.status,
-	s1.username,
+	s4.username,
 	s1.assigned_user_id,
 	s1.product_number,
 	s1.edi_number,
@@ -99,10 +109,10 @@ SELECT
 	s3.serial_number,
 	s3.g_bin,
 	s1.created_date
-	--s1.completed_date
 FROM
 	s1
 		LEFT JOIN s2 ON s1.product_number = s2.product_number AND s1.edi_number = s2.edi_number
 		LEFT JOIN s3 ON s1.to_kit_product_id = s3.id AND s1.to_kit_serial_id = s3.serial_id
-order by
+		FULL OUTER JOIN s4 ON s4.assigned_user_id = s1.assigned_user_id
+ORDER BY
 	s1.created_date
