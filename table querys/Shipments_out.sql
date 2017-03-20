@@ -11,13 +11,13 @@ select
 	t.serial_id,
 	ps.serial_number,
 	case
-		when pk.status = 4 then 'SHIPPED' 
+		when pk.status = 4 then 'SHIPPED'
 		when pk.status = 3 then 'SHIPPING'
 	end as status,
 	case
-		when pk.distributor_id = 168 then 'FROM SOUTHAVEN' 
+		when pk.distributor_id = 168 then 'FROM SOUTHAVEN'
 	end as from_location,
-	
+
 	to_char(pk.shipped_date, 'DD/MM/YYYY') as shipped_date,
 	case
 		when	pk.to_distributor_id = d.id then 'SHIPPED TO' || '-->' || d.city || ',' || d.state || ',' || d.country
@@ -28,7 +28,7 @@ from
 		LEFT JOIN sms.distributor d ON pk.to_distributor_id = d.id
 		left join sms.movement m on pk.movement_id = m.id
 		left join sms.transfer t on m.id = t.movement_id
-		LEFT JOIN sms.product p ON p.id = t.product_id 
+		LEFT JOIN sms.product p ON p.id = t.product_id
 		left join sms.product_serial ps on ps.id = t.serial_id
 		LEFT JOIN sms.user_table u ON t.assigned_user_id = u.id
 where
@@ -68,7 +68,7 @@ GROUP BY
 	p.id,
 	ps.id
 
-ORDER BY 
+ORDER BY
 	p.product_number
 ),
 s2 as (
@@ -88,10 +88,10 @@ GROUP BY
 	p.product_number,
 	p.edi_number
 
-ORDER BY 
+ORDER BY
 	p.product_number
 ),
- a1 as (  
+ a1 as (
 SELECT DISTINCT
 	s.product_id,
 	pc.component_product_id,
@@ -105,19 +105,19 @@ WHERE
 ),
 a2 as (
 SELECT
-	p.product_number as kit_product_number, 
-	p.edi_number as kit_edi,  
+	p.product_number as kit_product_number,
+	p.edi_number as kit_edi,
 	p.description as kit_description,
 	p2.product_number as component_product_number,
 	p2.edi_number as component_prod_id,
 	p2.description as component_description,
 	a1.quantity as component_quantity_in_kit,
 	rank() over (partition by p.product_number) as rank
-FROM 
+FROM
 	a1
 		LEFT JOIN sms.product p ON a1.product_id = p.id
 		LEFT JOIN sms.product p2 ON a1.component_product_id = p2.id
-WHERE 
+WHERE
 	p.product_number not like 'ZPB%'
 group by
 	p.product_number,
@@ -142,7 +142,7 @@ order by
 	a2.kit_product_number
 ),
 a4 as (
-select 
+select
 	a3.kit_product_number,
 	case when a3.total_pieces_in_kit is null then sum(s1.pk_rank) end as total
 from
@@ -152,7 +152,7 @@ group by
 	a3.kit_product_number,
 	a3.total_pieces_in_kit
 )
-select 
+select
 	s1.package_number,
 	s1.transfer_movement_id as movement_id,
 	s1.username as User_Name,
@@ -166,9 +166,9 @@ select
 		when s1.serial_number is null then 'Loose Piece'
 		else 'Kit'
 	end as product_type,
-	case 
+	case
 		when a3.total_pieces_in_kit > 0 then total_pieces_in_kit
-		when a3.total_pieces_in_kit is null then sum(s1.pk_rank) 
+		when a3.total_pieces_in_kit is null then sum(s1.pk_rank)
 	end as total,
 	s1.status,
 	s1.from_location,
@@ -181,7 +181,7 @@ from
 		left join a4 on s1.product_number = a4.kit_product_number
 		left join s2 on s1.product_number = s2.product_number and s1.edi_number = s2.edi_number
 		left join s3 on s1.product_number = s3.product_number and s1.edi_number = s3.edi_number
-	
+
 group by
 	s1.package_number,
 	s1.transfer_movement_id,
